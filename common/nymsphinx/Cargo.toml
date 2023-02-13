@@ -25,6 +25,9 @@ nymsphinx-types = { path = "types" }
 crypto = { path = "../crypto" }
 topology = { path = "../topology" }
 
+# outfox
+nym-outfox = { path = "../../nym-outfox" }
+
 [dev-dependencies]
 mixnet-contract-common = { path = "../cosmwasm-smart-contracts/mixnet-contract" }
 

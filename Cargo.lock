@@ -3926,6 +3926,7 @@ version = "0.1.0"
 dependencies = [
  "crypto",
  "mixnet-contract-common",
+ "nym-outfox",
  "nymsphinx-acknowledgements",
  "nymsphinx-addressing",
  "nymsphinx-anonymous-replies",
