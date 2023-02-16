@@ -21,6 +21,7 @@ use log::info;
 use logging::setup_logging;
 use node_status_api::NodeStatusCache;
 use nym_contract_cache::cache::NymContractCache;
+use nymsphinx::receiver::SphinxMessageReceiver;
 use rand::rngs::OsRng;
 use std::error::Error;
 use support::{http, nyxd};
@@ -127,7 +128,7 @@ async fn start_nym_api_tasks(
         // if network monitor is enabled, the storage MUST BE available
         let storage = maybe_storage.unwrap();
 
-        network_monitor::start(
+        network_monitor::start::<SphinxMessageReceiver>(
             &config,
             nym_contract_cache_state,
             storage,

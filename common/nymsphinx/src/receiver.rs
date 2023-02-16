@@ -93,6 +93,10 @@ impl OutfoxMessageReceiver {
 }
 
 impl MessageReceiver for OutfoxMessageReceiver {
+    fn new() -> Self {
+        Self::default()
+    }
+
     fn reconstructor(&self) -> MessageReconstructor {
         self.reconstructor.clone()
     }
@@ -115,6 +119,7 @@ impl MessageReceiver for OutfoxMessageReceiver {
 }
 
 pub trait MessageReceiver {
+    fn new() -> Self;
     fn reconstructor(&self) -> MessageReconstructor;
     fn num_mix_hops(&self) -> u8;
 
@@ -186,6 +191,7 @@ pub trait MessageReceiver {
     }
 }
 
+#[derive(Clone)]
 pub struct SphinxMessageReceiver {
     /// High level public structure used to buffer all received data [`Fragment`]s and eventually
     /// returning original messages that they encapsulate.
@@ -197,10 +203,6 @@ pub struct SphinxMessageReceiver {
 }
 
 impl SphinxMessageReceiver {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     /// Allows setting non-default number of expected mix hops in the network.
     #[must_use]
     pub fn with_mix_hops(mut self, hops: u8) -> Self {
@@ -210,6 +212,10 @@ impl SphinxMessageReceiver {
 }
 
 impl MessageReceiver for SphinxMessageReceiver {
+    fn new() -> Self {
+        Default::default()
+    }
+
     fn decrypt_raw_message<C>(
         &self,
         message: &mut [u8],

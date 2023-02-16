@@ -35,7 +35,7 @@ use log::{debug, info};
 use nymsphinx::acknowledgements::AckKey;
 use nymsphinx::addressing::clients::Recipient;
 use nymsphinx::addressing::nodes::NodeIdentity;
-use nymsphinx::receiver::ReconstructedMessage;
+use nymsphinx::receiver::{ReconstructedMessage, SphinxMessageReceiver};
 use std::sync::Arc;
 use std::time::Duration;
 use tap::TapFallible;
@@ -282,14 +282,15 @@ where
         shutdown: TaskClient,
     ) {
         info!("Starting received messages buffer controller...");
-        ReceivedMessagesBufferController::new(
-            local_encryption_keypair,
-            query_receiver,
-            mixnet_receiver,
-            reply_key_storage,
-            reply_controller_sender,
-        )
-        .start_with_shutdown(shutdown)
+        let controller: ReceivedMessagesBufferController<SphinxMessageReceiver> =
+            ReceivedMessagesBufferController::new(
+                local_encryption_keypair,
+                query_receiver,
+                mixnet_receiver,
+                reply_key_storage,
+                reply_controller_sender,
+            );
+        controller.start_with_shutdown(shutdown)
     }
 
     async fn start_gateway_client(
