@@ -53,3 +53,4 @@ pub use nymsphinx::{
     receiver::ReconstructedMessage,
 };
 pub use paths::{GatewayKeyMode, KeyMode, StoragePaths};
+pub use topology::{provider_trait::TopologyProvider, NymTopology};

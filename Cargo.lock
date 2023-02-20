@@ -3818,6 +3818,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml",
+ "topology",
  "url",
  "validator-client",
 ]

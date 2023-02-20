@@ -21,6 +21,8 @@ use nymsphinx::{
 use task::TaskManager;
 
 use futures::StreamExt;
+use topology::provider_trait::TopologyProvider;
+use topology::NymTopology;
 use validator_client::nyxd::SigningNyxdClient;
 
 use crate::{Error, Result};
@@ -36,6 +38,7 @@ pub struct MixnetClientBuilder {
     storage_paths: Option<StoragePaths>,
     keys: Option<Keys>,
     gateway_config: Option<GatewayEndpointConfig>,
+    custom_topology_provider: Option<Box<dyn TopologyProvider>>,
 }
 
 impl MixnetClientBuilder {
@@ -68,6 +71,15 @@ impl MixnetClientBuilder {
         self
     }
 
+    #[must_use]
+    pub fn custom_topology_provider(
+        mut self,
+        topology_provider: Box<dyn TopologyProvider>,
+    ) -> Self {
+        self.custom_topology_provider = Some(topology_provider);
+        self
+    }
+
     /// Construct a [`DisconnectedMixnetClient`] from the setup specified.
     pub async fn build<B>(self) -> Result<DisconnectedMixnetClient<B>>
     where
@@ -77,7 +89,12 @@ impl MixnetClientBuilder {
         let config = self.config.unwrap_or_default();
         let storage_paths = self.storage_paths;
 
-        let mut client = DisconnectedMixnetClient::new(Some(config), storage_paths).await?;
+        let mut client = DisconnectedMixnetClient::new(
+            Some(config),
+            storage_paths,
+            self.custom_topology_provider,
+        )
+        .await?;
 
         if let Some(keys) = self.keys {
             client.set_keys(keys);
@@ -116,6 +133,9 @@ where
 
     /// The storage backend for reply-SURBs
     reply_storage_backend: B,
+
+    /// Alternative provider of network topology used for constructing sphinx packets.
+    custom_topology_provider: Option<Box<dyn TopologyProvider>>,
 }
 
 impl<B> DisconnectedMixnetClient<B>
@@ -131,6 +151,7 @@ where
     async fn new(
         config: Option<Config>,
         paths: Option<StoragePaths>,
+        custom_topology_provider: Option<Box<dyn TopologyProvider>>,
     ) -> Result<DisconnectedMixnetClient<B>>
     where
         <B as ReplyStorageBackend>::StorageError: Send + Sync,
@@ -187,6 +208,7 @@ where
             storage_paths: paths,
             state: BuilderState::New,
             reply_storage_backend,
+            custom_topology_provider,
         })
     }
 
@@ -373,7 +395,7 @@ where
         // TODO: we currently don't support having a bandwidth controller
         let bandwidth_controller = None;
 
-        let base_builder: BaseClientBuilder<'_, _, SigningNyxdClient> = BaseClientBuilder::new(
+        let mut base_builder: BaseClientBuilder<'_, _, SigningNyxdClient> = BaseClientBuilder::new(
             &gateway_endpoint_config,
             &self.config.debug_config,
             self.key_manager.clone(),
@@ -382,6 +404,10 @@ where
             CredentialsToggle::Disabled,
             self.config.nym_api_endpoints.clone(),
         );
+
+        if let Some(topology_provider) = self.custom_topology_provider {
+            base_builder = base_builder.with_topology_provider(topology_provider);
+        }
 
         let mut started_client = base_builder.start_base().await?;
         let client_input = started_client.client_input.register_producer();
@@ -498,7 +524,7 @@ impl MixnetClient {
     }
 
     /// Get a shallow clone of [`ConnectionCommandSender`]. This is useful if you want to e.g
-    /// explictly close a transmission lane that is still sending data even though it should
+    /// explicitly close a transmission lane that is still sending data even though it should
     /// cancel.
     pub fn connection_command_sender(&self) -> client_connections::ConnectionCommandSender {
         self.client_input.connection_command_sender.clone()
@@ -508,6 +534,20 @@ impl MixnetClient {
     /// of backpressure logic.
     pub fn shared_lane_queue_lengths(&self) -> client_connections::LaneQueueLengths {
         self.client_state.shared_lane_queue_lengths.clone()
+    }
+
+    /// Change the network topology used by this client for constructing sphinx packets into the
+    /// provided one.
+    pub async fn manually_overwrite_topology(&self, new_topology: NymTopology) {
+        self.client_state
+            .topology_accessor
+            .manually_change_topology(new_topology)
+            .await
+    }
+
+    /// Restore default topology refreshing behaviour of this client.
+    pub fn restore_automatic_topology_refreshing(&self) {
+        self.client_state.topology_accessor.release_manual_control()
     }
 
     /// Sends stringy data to the supplied Nym address
